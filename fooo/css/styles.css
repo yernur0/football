@@ -1,0 +1,259 @@
+/* Custom Theme & Animations for Football Draft Auction */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root {
+  --font-display: 'Outfit', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #080c14;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+    linear-gradient(180deg, #080c14 0%, #0d1527 100%);
+  background-attachment: fixed;
+  color: #f1f5f9;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-numbers {
+  font-family: var(--font-mono);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-elevated {
+  background: rgba(17, 27, 49, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+}
+
+.glass-card-interactive {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-card-interactive:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.15);
+}
+
+/* Position Colors */
+.badge-pos-GK {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.badge-pos-DEF {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.4);
+}
+.badge-pos-MID {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.badge-pos-FW {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* Neon Glow utilities */
+.glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.45);
+}
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(14, 165, 233, 0.45);
+}
+.glow-amber {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.45);
+}
+.glow-purple {
+  box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.45);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Roulette & Animation */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3), inset 0 0 15px rgba(14, 165, 233, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(14, 165, 233, 0.6), inset 0 0 25px rgba(14, 165, 233, 0.3);
+  }
+}
+
+.roulette-active {
+  animation: pulseGlow 1.2s infinite ease-in-out;
+}
+
+@keyframes shakeLot {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px) rotate(-0.5deg); }
+  75% { transform: translateX(4px) rotate(0.5deg); }
+}
+.shake-anim {
+  animation: shakeLot 0.25s ease-in-out;
+}
+
+/* Tactical Football Field */
+.football-pitch {
+  background: #14532d;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      #166534,
+      #166534 40px,
+      #15803d 40px,
+      #15803d 80px
+    );
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.pitch-line {
+  position: absolute;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.pitch-center-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+}
+
+.pitch-center-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.pitch-penalty-top {
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 55px;
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  border-right: 2px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.pitch-penalty-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 55px;
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  border-right: 2px solid rgba(255, 255, 255, 0.35);
+  border-top: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+/* Card Rarity Badge Shimmer */
+.shimmer-effect {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Circular Timer Progress */
+.timer-svg circle {
+  transition: stroke-dashoffset 0.15s linear, stroke 0.3s ease;
+}
+
+/* Pitch Drag & Drop & Selection Styles */
+.pitch-player-token {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease;
+}
+
+.pitch-player-token:active {
+  cursor: grabbing;
+  transform: scale(1.08);
+}
+
+.pitch-token-dragging {
+  opacity: 0.45;
+  transform: scale(0.95);
+}
+
+.slot-drag-hover {
+  outline: 2px dashed #38bdf8 !important;
+  background-color: rgba(56, 189, 248, 0.25) !important;
+  transform: scale(1.06);
+}
+
+.token-selected-ring {
+  box-shadow: 0 0 0 3px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.6) !important;
+  transform: scale(1.08);
+  animation: pulseSelect 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseSelect {
+  0%, 100% {
+    box-shadow: 0 0 0 3px #38bdf8, 0 0 15px rgba(56, 189, 248, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px #34d399, 0 0 25px rgba(52, 211, 153, 0.7);
+  }
+}
+
