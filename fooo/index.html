@@ -59,7 +59,7 @@
       <div class="flex items-center gap-3 bg-slate-950/70 border border-slate-800/80 px-4 py-1.5 rounded-xl text-xs font-mono">
         <div class="flex items-center gap-1.5">
           <span class="text-slate-400">В пуле:</span>
-          <span id="stat-pool-count" class="font-bold text-sky-400">60</span>
+          <span id="stat-pool-count" class="font-bold text-sky-400">165</span>
         </div>
         <div class="w-px h-4 bg-slate-800"></div>
         <div class="flex items-center gap-1.5">
@@ -366,14 +366,15 @@
 
             <!-- BIDDING PANEL 2: Blind Auction -->
             <div id="blind-bid-panel" class="hidden flex flex-col gap-3">
-              <div class="text-xs text-purple-300 bg-purple-950/40 border border-purple-500/40 p-2.5 rounded-xl flex items-center justify-between">
-                <span>🙈 <strong>Слепой аукцион:</strong> Введите скрытые ставки для каждой команды.</span>
+              <div class="text-xs text-purple-300 bg-purple-950/40 border border-purple-500/40 p-2.5 rounded-xl flex items-center justify-between gap-3">
+                <span>🙈 <strong>Слепой аукцион:</strong> Передавайте устройство командам по очереди. Ставки скрыты до вскрытия всех ходов или окончания таймера.</span>
                 <button 
                   id="btn-reveal-blind" 
                   type="button" 
-                  class="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors"
+                  class="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled
                 >
-                  Вскрыть ставки сейчас
+                  Вскрыть после ходов всех команд
                 </button>
               </div>
               <div id="blind-bid-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -766,7 +767,40 @@
     </div>
   </div>
 
-  <!-- 5. RULES & BANKRUPTCY HELP MODAL -->
+  <!-- 5. PLAYER EXCHANGE MODAL -->
+  <div id="modal-trade" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-xl w-full border border-slate-700/80 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+          <span>↔️</span>
+          <span>Предложить обмен</span>
+        </h3>
+        <button id="btn-close-trade" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">✕</button>
+      </div>
+      <p id="trade-offer-summary" class="text-sm text-slate-300 mb-4"></p>
+      <div class="space-y-4">
+        <div>
+          <label for="trade-target-team" class="block text-xs font-semibold text-slate-300 mb-1">Команда-соперник</label>
+          <select id="trade-target-team" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-sky-500"></select>
+        </div>
+        <div>
+          <label for="trade-target-player" class="block text-xs font-semibold text-slate-300 mb-1">Игрок, которого хотите получить</label>
+          <select id="trade-target-player" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-sky-500"></select>
+          <p id="trade-target-empty" class="hidden text-xs text-amber-300 mt-1">У этой команды пока нет игроков для обмена.</p>
+        </div>
+        <div>
+          <label for="trade-cash" class="block text-xs font-semibold text-slate-300 mb-1">Доплата вашей команды (€M, 0 для обмена 1 на 1)</label>
+          <input id="trade-cash" type="number" min="0" step="1" value="0" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white focus:outline-none focus:border-sky-500" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="btn-submit-trade" type="button" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold transition-colors">Отправить предложение</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Обмен завершится только после подтверждения командой-соперником. Игроки и доплата перейдут одновременно.</p>
+    </div>
+  </div>
+
+  <!-- 6. RULES & BANKRUPTCY HELP MODAL -->
   <div id="modal-rules-help" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
     <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-2xl w-full border border-slate-700/80 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
@@ -815,6 +849,26 @@
           </div>
           <p class="text-slate-300">
             Ведущий аукциона (хост) в любой момент может предоставить финансовую субсидию обанкротившемуся клубу кнопкой <strong>«💰 +€50M Кредит»</strong> прямо в карточке команды. Это позволяет спасти участника и вернуть интригу в торги.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-purple-950/40 border border-purple-500/40 shadow-lg">
+          <div class="font-bold text-purple-300 text-base mb-1.5 flex items-center gap-2">
+            <span>🙈</span>
+            <span>4. Честный слепой аукцион на одном компьютере</span>
+          </div>
+          <p class="text-slate-300">
+            Команды вводят ставки по очереди, передавая устройство следующему участнику. Уже поданные суммы не видны. Вскрытие доступно, когда все команды сделали ход, либо автоматически по окончании таймера. «Разведка» не раскрывает ставки в этом режиме.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-sky-950/40 border border-sky-500/40 shadow-lg">
+          <div class="font-bold text-sky-300 text-base mb-1.5 flex items-center gap-2">
+            <span>↔️</span>
+            <span>5. Обмены между командами</span>
+          </div>
+          <p class="text-slate-300">
+            Нажмите ↔ рядом с игроком, чтобы предложить его в обмен на игрока другой команды и при желании доплатить из своего бюджета. Обмен проводится только после принятия предложения другой командой; при отказе или отзыве составы и бюджеты не меняются.
           </p>
         </div>
       </div>

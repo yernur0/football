@@ -33,7 +33,7 @@
       players: [],
       abilities: {
         veto: { id: 'veto', name: 'Перехват', icon: '🛡️', used: false, desc: 'Сбрасывает текущую максимальную ставку лота' },
-        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'В Слепом аукционе открывает скрытые ставки соперников' },
+        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'Не раскрывает ставки до завершения слепого аукциона' },
         agent: { id: 'agent', name: 'Агентский %', icon: '💰', used: false, desc: 'Добавляет +10% к финальной цене для победителя' }
       }
     },
@@ -49,7 +49,7 @@
       players: [],
       abilities: {
         veto: { id: 'veto', name: 'Перехват', icon: '🛡️', used: false, desc: 'Сбрасывает текущую максимальную ставку лота' },
-        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'В Слепом аукционе открывает скрытые ставки соперников' },
+        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'Не раскрывает ставки до завершения слепого аукциона' },
         agent: { id: 'agent', name: 'Агентский %', icon: '💰', used: false, desc: 'Добавляет +10% к финальной цене для победителя' }
       }
     },
@@ -65,7 +65,7 @@
       players: [],
       abilities: {
         veto: { id: 'veto', name: 'Перехват', icon: '🛡️', used: false, desc: 'Сбрасывает текущую максимальную ставку лота' },
-        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'В Слепом аукционе открывает скрытые ставки соперников' },
+        scout: { id: 'scout', name: 'Разведка', icon: '🕵️', used: false, desc: 'Не раскрывает ставки до завершения слепого аукциона' },
         agent: { id: 'agent', name: 'Агентский %', icon: '💰', used: false, desc: 'Добавляет +10% к финальной цене для победителя' }
       }
     }
@@ -147,6 +147,8 @@
       this.teams = this.loadTeams();
       this.pool = this.loadPool();
       this.draftedPlayerIds = this.loadDraftedIds();
+      this.removedPlayerIds = this.loadRemovedPlayerIds();
+      this.tradeOffers = this.loadTradeOffers();
       this.currentLot = null;
       this.timerInterval = null;
       this.isSpinning = false;
@@ -181,7 +183,15 @@
     loadTeams() {
       try {
         const saved = localStorage.getItem('draft_teams');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const teams = JSON.parse(saved);
+          teams.forEach(team => {
+            if (team.abilities && team.abilities.scout) {
+              team.abilities.scout.desc = 'Не раскрывает ставки до завершения слепого аукциона';
+            }
+          });
+          return teams;
+        }
       } catch (e) {
         console.warn('Storage read error:', e);
       }
@@ -206,6 +216,52 @@
         (t.players || []).forEach(p => ids.push(p.id));
       });
       return ids;
+    }
+
+    loadTradeOffers() {
+      try {
+        const saved = localStorage.getItem('draft_trade_offers');
+        const offers = saved ? JSON.parse(saved) : [];
+        return Array.isArray(offers) ? offers.filter(offer => offer && offer.status === 'pending') : [];
+      } catch (e) {
+        console.warn('Storage read error:', e);
+        return [];
+      }
+    }
+
+    saveTradeOffers() {
+      try {
+        localStorage.setItem('draft_trade_offers', JSON.stringify(this.tradeOffers));
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
+    }
+
+    loadRemovedPlayerIds() {
+      try {
+        const saved = localStorage.getItem('draft_removed_player_ids');
+        if (!saved) return [];
+        const ids = JSON.parse(saved);
+        return Array.isArray(ids) ? ids.filter(id => this.pool.some(player => player.id === id)) : [];
+      } catch (e) {
+        console.warn('Storage read error:', e);
+        return [];
+      }
+    }
+
+    saveRemovedPlayerIds() {
+      try {
+        localStorage.setItem('draft_removed_player_ids', JSON.stringify(this.removedPlayerIds));
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
+    }
+
+    getAvailablePlayers() {
+      return this.pool.filter(player =>
+        !this.draftedPlayerIds.includes(player.id) &&
+        !this.removedPlayerIds.includes(player.id)
+      );
     }
 
     // --- DOM INITIALIZATION ---
@@ -297,6 +353,13 @@
         freeAgentTeamSelect: document.getElementById('free-agent-team-select'),
         freeAgentSearch: document.getElementById('free-agent-search'),
         freeAgentsList: document.getElementById('free-agents-list'),
+
+        // Player trades
+        tradeModal: document.getElementById('modal-trade'),
+        tradeFromPlayer: document.getElementById('trade-from-player'),
+        tradeTargetTeam: document.getElementById('trade-target-team'),
+        tradeTargetPlayer: document.getElementById('trade-target-player'),
+        tradeCash: document.getElementById('trade-cash'),
 
         // Toast
         toastContainer: document.getElementById('toast-container')
@@ -402,6 +465,18 @@
         this.dom.freeAgentTeamSelect.addEventListener('change', () => this.renderFreeAgentsList());
       }
 
+      const btnCloseTrade = document.getElementById('btn-close-trade');
+      if (btnCloseTrade) {
+        btnCloseTrade.addEventListener('click', () => this.closeTradeModal());
+      }
+      const btnSubmitTrade = document.getElementById('btn-submit-trade');
+      if (btnSubmitTrade) {
+        btnSubmitTrade.addEventListener('click', () => this.submitTradeOffer());
+      }
+      if (this.dom.tradeTargetTeam) {
+        this.dom.tradeTargetTeam.addEventListener('change', () => this.renderTradeTargetPlayers());
+      }
+
       // Formation Change & Auto-Arrange
       if (this.dom.pitchFormationSelect) {
         this.dom.pitchFormationSelect.addEventListener('change', (e) => {
@@ -476,9 +551,9 @@
       if (this.isSpinning) return;
 
       // Check available pool
-      const available = this.pool.filter(p => !this.draftedPlayerIds.includes(p.id));
+      const available = this.getAvailablePlayers();
       if (available.length === 0) {
-        this.showToast('Все игроки из базы уже распределены!', 'warning');
+        this.showToast('Все игроки уже распределены или исключены из пула!', 'warning');
         return;
       }
 
@@ -572,9 +647,11 @@
         agentFeeActivatedBy: null, // teamId who used agent ability
         vetoUsedBy: null,
         buyoutPrice: buyoutPrice,
-        blindBids: { 1: null, 2: null, 3: null },
+        blindBids: Object.fromEntries(this.teams.map(team => [
+          team.id,
+          (team.players || []).length >= this.settings.squadLimit ? 0 : null
+        ])),
         blindRevealed: false,
-        scoutActiveForTeamId: null, // team who used scout in blind auction
         completed: false
       };
 
@@ -841,17 +918,18 @@
     renderBlindBidsCards() {
       if (!this.dom.blindBidCards || !this.currentLot) return;
       const lot = this.currentLot;
+      const currentTeam = this.teams.find(team => lot.blindBids[team.id] === null);
 
       this.dom.blindBidCards.innerHTML = '';
 
       this.teams.forEach(team => {
         const isSquadFull = (team.players || []).length >= this.settings.squadLimit;
-        const hasBid = lot.blindBids[team.id] !== null;
+        const hasSubmitted = lot.blindBids[team.id] !== null;
         const bidVal = lot.blindBids[team.id];
-
-        // Is scout active for someone?
-        // If scout was used by Team X, Team X gets to see opponents' bids!
-        const canSeeThisBid = lot.blindRevealed || (lot.scoutActiveForTeamId !== null && lot.scoutActiveForTeamId === team.id) || (lot.scoutActiveForTeamId !== null);
+        const isCurrentTurn = currentTeam && currentTeam.id === team.id;
+        const minimumTotal = lot.agentFeeActivatedBy ?
+          Math.round(lot.initialBid * (1 + this.settings.agentPercent / 100)) : lot.initialBid;
+        const canSubmitBid = team.budget >= minimumTotal;
 
         const card = document.createElement('div');
         card.className = `p-3 rounded-xl border border-purple-500/30 bg-purple-950/20 flex flex-col gap-2`;
@@ -859,20 +937,18 @@
         card.innerHTML = `
           <div class="flex items-center justify-between">
             <span class="font-bold text-sm" style="color: ${team.color};">${team.name}</span>
-            <span class="text-xs font-mono text-slate-400">Бюджет: €${team.budget}M</span>
+            <span class="text-xs font-mono text-slate-400">${isCurrentTurn ? `Бюджет: €${team.budget}M` : ''}</span>
           </div>
           <div class="my-1">
-            ${hasBid ? `
+            ${hasSubmitted ? `
               <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/80 border border-purple-500/40">
                 <span class="text-xs text-purple-300 font-medium">
-                  ${lot.blindRevealed ? 'Ставка раскрыта:' : (canSeeThisBid ? '🕵️ Разведка раскрыла:' : '🔒 Ставка отправлена:')}
+                  ${lot.blindRevealed ? (bidVal > 0 ? 'Ставка раскрыта:' : 'Без ставки:') : '🔒 Ход завершён — ставка скрыта'}
                 </span>
-                <span class="text-sm font-bold font-mono text-white">
-                  ${(lot.blindRevealed || canSeeThisBid) ? `€${bidVal}M` : '••••••'}
-                </span>
+                ${lot.blindRevealed && bidVal > 0 ? `<span class="text-sm font-bold font-mono text-white">€${bidVal}M</span>` : ''}
               </div>
-            ` : `
-              <div class="flex items-center gap-1.5">
+            ` : isCurrentTurn && lot.isRunning && !isSquadFull && canSubmitBid ? `
+              <div class="flex flex-col gap-2">
                 <input 
                   type="number" 
                   min="${lot.initialBid}" 
@@ -880,18 +956,30 @@
                   placeholder="Мин €${lot.initialBid}M" 
                   class="blind-input w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-purple-500"
                   data-team="${team.id}"
-                  ${isSquadFull || !lot.isRunning ? 'disabled' : ''}
                 />
-                <button 
-                  type="button" 
-                  class="blind-submit-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors"
-                  data-team="${team.id}"
-                  ${isSquadFull || !lot.isRunning ? 'disabled' : ''}
-                >
-                  Скрыть
-                </button>
+                <div class="flex gap-2">
+                  <button 
+                    type="button" 
+                    class="blind-submit-btn flex-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors"
+                    data-team="${team.id}"
+                  >
+                    Подать скрытую ставку
+                  </button>
+                  <button 
+                    type="button" 
+                    class="blind-pass-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                    data-team="${team.id}"
+                  >
+                    Не ставить
+                  </button>
+                </div>
               </div>
-            `}
+            ` : isCurrentTurn && lot.isRunning && !isSquadFull ? `
+              <div class="text-xs text-amber-300">Не хватает бюджета для минимальной ставки.</div>
+              <button type="button" class="blind-pass-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors" data-team="${team.id}">
+                Пропустить ход
+              </button>
+            ` : `<div class="text-xs text-slate-400">${hasSubmitted ? 'Ожидаем остальные команды…' : (lot.isRunning ? `Передайте устройство команде «${team.name}» после её хода.` : 'Ставки больше не принимаются.')}</div>`}
           </div>
         `;
 
@@ -906,9 +994,25 @@
           if (input && input.value) {
             const amount = parseInt(input.value, 10);
             this.placeBlindBid(teamId, amount);
+          } else {
+            this.showToast('Введите сумму ставки.', 'warning');
           }
         });
       });
+
+      this.dom.blindBidCards.querySelectorAll('.blind-pass-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          this.passBlindBid(parseInt(e.currentTarget.getAttribute('data-team'), 10));
+        });
+      });
+
+      if (this.dom.btnRevealBlind) {
+        const allSubmitted = this.teams.every(team => lot.blindBids[team.id] !== null);
+        this.dom.btnRevealBlind.disabled = !allSubmitted || lot.blindRevealed;
+        this.dom.btnRevealBlind.classList.toggle('opacity-50', this.dom.btnRevealBlind.disabled);
+        this.dom.btnRevealBlind.classList.toggle('cursor-not-allowed', this.dom.btnRevealBlind.disabled);
+        this.dom.btnRevealBlind.textContent = allSubmitted ? 'Вскрыть ставки' : 'Вскрыть после ходов всех команд';
+      }
     }
 
     // --- BANKRUPTCY PROTECTION HELPER ---
@@ -1016,6 +1120,11 @@
       const lot = this.currentLot;
       const team = this.teams.find(t => t.id === teamId);
       if (!team) return;
+      const currentTeam = this.teams.find(candidate => lot.blindBids[candidate.id] === null);
+      if (!currentTeam || currentTeam.id !== teamId) {
+        this.showToast('Сейчас ход другой команды.', 'warning');
+        return;
+      }
 
       if (amount < lot.initialBid) {
         this.showToast(`Ставка не может быть ниже стартовой цены €${lot.initialBid}M!`, 'warning');
@@ -1033,18 +1142,31 @@
       lot.blindBids[teamId] = amount;
       window.SoundFX.bid();
       this.renderCurrentLot();
-      this.showToast(`🔒 ${team.name} сделала скрытую ставку!`);
-
-      // Check if all 3 teams submitted
-      const allSubmitted = Object.values(lot.blindBids).every(b => b !== null);
-      if (allSubmitted) {
-        this.showToast('Все команды подали ставки! Можно вскрывать.', 'info');
-      }
+      this.showToast(`🔒 Ставка команды «${team.name}» принята. Передайте устройство следующей команде.`, 'info');
     }
 
-    revealBlindBids() {
+    passBlindBid(teamId) {
+      if (!this.currentLot || !this.currentLot.isRunning) return;
+      const lot = this.currentLot;
+      const currentTeam = this.teams.find(team => lot.blindBids[team.id] === null);
+      if (!currentTeam || currentTeam.id !== teamId) {
+        this.showToast('Сейчас ход другой команды.', 'warning');
+        return;
+      }
+
+      lot.blindBids[teamId] = 0;
+      this.renderCurrentLot();
+      this.showToast(`Команда «${currentTeam.name}» пропустила ставку. Передайте устройство следующей команде.`, 'info');
+    }
+
+    revealBlindBids(timerExpired = false) {
       if (!this.currentLot || this.currentLot.auctionType !== 'blind') return;
       const lot = this.currentLot;
+      const allSubmitted = this.teams.every(team => lot.blindBids[team.id] !== null);
+      if (!allSubmitted && !timerExpired) {
+        this.showToast('Ставки можно вскрыть только после ходов всех команд или окончания таймера.', 'warning');
+        return;
+      }
 
       this.clearLotTimer();
       lot.isRunning = false;
@@ -1056,15 +1178,14 @@
 
       this.teams.forEach(team => {
         const bid = lot.blindBids[team.id];
-        if (bid && bid > topBid) {
+        if (bid > topBid) {
           topBid = bid;
           winningTeamId = team.id;
         }
       });
 
       if (!winningTeamId || topBid === 0) {
-        this.renderCurrentLot();
-        this.showToast('Ни одна команда не сделала ставку!', 'warning');
+        this.skipCurrentLot();
         return;
       }
 
@@ -1129,14 +1250,8 @@
           return;
         }
 
-        ability.used = true;
-        lot.scoutActiveForTeamId = teamId;
-
-        window.SoundFX.ability();
-        this.saveTeams();
-        this.renderCurrentLot();
-        this.renderTeams();
-        this.showToast(`🕵️ ${team.name} активировала РАЗВЕДКУ! Скрытые ставки раскрыты!`, 'info');
+        this.showToast('Ставки в слепом аукционе скрыты до завершения ходов всех команд.', 'warning');
+        return;
       } 
       else if (abilityKey === 'agent') {
         // Agent fee adds +10% to winning price
@@ -1219,7 +1334,7 @@
 
       if (lot.auctionType === 'blind') {
         // In blind auction, reveal bids when timer ends
-        this.revealBlindBids();
+        this.revealBlindBids(true);
         return;
       }
 
@@ -1231,7 +1346,7 @@
 
         this.showLotWinnerDeclaration(winner, finalPrice, false);
       } else {
-        this.showToast('Время вышло! Ставок не поступило. Лот можно пропустить.', 'warning');
+        this.skipCurrentLot();
       }
     }
 
@@ -1317,12 +1432,25 @@
 
     skipCurrentLot() {
       if (!this.currentLot) return;
+      const lot = this.currentLot;
+      const hasBids = lot.auctionType === 'blind' ?
+        Object.values(lot.blindBids || {}).some(bid => bid > 0) :
+        Boolean(lot.leadingTeamId);
+      if (hasBids) {
+        this.showToast('В этом лоте уже есть ставки — завершите аукцион.', 'warning');
+        return;
+      }
+
       this.clearLotTimer();
-      const playerName = this.currentLot.player ? this.currentLot.player.name : 'Игрок';
+      const playerName = lot.player ? lot.player.name : 'Игрок';
+      if (lot.player && !this.removedPlayerIds.includes(lot.player.id)) {
+        this.removedPlayerIds.push(lot.player.id);
+        this.saveRemovedPlayerIds();
+      }
       this.currentLot = null;
       if (this.dom.lotWinnerDeclaration) this.dom.lotWinnerDeclaration.classList.add('hidden');
       this.render();
-      this.showToast(`Лот "${playerName}" пропущен и возвращен в пул.`, 'info');
+      this.showToast(`Лот "${playerName}" пропущен и исключен из пула.`, 'info');
     }
 
     toggleLotPause() {
@@ -1409,6 +1537,14 @@
       // Remove from drafted list
       const draftIdx = this.draftedPlayerIds.indexOf(playerId);
       if (draftIdx !== -1) this.draftedPlayerIds.splice(draftIdx, 1);
+      this.tradeOffers.forEach(offer => {
+        if (offer.status === 'pending' &&
+            ((offer.fromTeamId === teamId && offer.fromPlayerId === playerId) ||
+             (offer.toTeamId === teamId && offer.toPlayerId === playerId))) {
+          offer.status = 'cancelled';
+        }
+      });
+      this.saveTradeOffers();
 
       this.saveTeams();
       this.render();
@@ -1559,7 +1695,16 @@
                       <span class="text-[10px] text-slate-500 truncate hidden sm:inline">${p.club}</span>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                      <span class="font-mono font-bold text-emerald-400">€${p.purchasePrice}M</span>
+                      <span class="font-mono font-bold text-emerald-400">${p.acquiredByTrade ? 'Обмен' : `€${p.purchasePrice}M`}</span>
+                      <button
+                        type="button"
+                        class="trade-player-btn text-sky-400 hover:text-sky-300 transition-colors p-0.5"
+                        data-team="${team.id}"
+                        data-player="${p.id}"
+                        title="Предложить обмен игрока"
+                      >
+                        ↔
+                      </button>
                       <button 
                         type="button" 
                         class="remove-player-btn opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 transition-opacity p-0.5" 
@@ -1578,6 +1723,61 @@
         `;
 
         card.innerHTML = headerHTML;
+
+        const teamOffers = this.tradeOffers.filter(offer =>
+          offer.status === 'pending' &&
+          (offer.fromTeamId === team.id || offer.toTeamId === team.id)
+        );
+        if (teamOffers.length) {
+          const offersSection = document.createElement('div');
+          offersSection.className = 'mt-3 space-y-2';
+          offersSection.innerHTML = '<div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Предложения обмена</div>';
+          teamOffers.forEach(offer => {
+            const fromTeam = this.teams.find(item => item.id === offer.fromTeamId);
+            const toTeam = this.teams.find(item => item.id === offer.toTeamId);
+            const offeredPlayer = fromTeam && fromTeam.players.find(player => player.id === offer.fromPlayerId);
+            const requestedPlayer = toTeam && toTeam.players.find(player => player.id === offer.toPlayerId);
+            if (!fromTeam || !toTeam || !offeredPlayer || !requestedPlayer) return;
+
+            const offerCard = document.createElement('div');
+            offerCard.className = 'rounded-xl border border-sky-500/30 bg-sky-950/20 p-2.5 text-xs';
+            const description = document.createElement('div');
+            description.className = 'text-slate-200';
+            description.textContent = `${fromTeam.name} предлагает ${offeredPlayer.name} + €${offer.cash}M за ${requestedPlayer.name}.`;
+            offerCard.appendChild(description);
+
+            if (offer.toTeamId === team.id) {
+              const actions = document.createElement('div');
+              actions.className = 'flex gap-2 mt-2';
+              const acceptButton = document.createElement('button');
+              acceptButton.type = 'button';
+              acceptButton.className = 'accept-trade-btn px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold';
+              acceptButton.textContent = 'Принять';
+              acceptButton.dataset.offer = offer.id;
+              const rejectButton = document.createElement('button');
+              rejectButton.type = 'button';
+              rejectButton.className = 'reject-trade-btn px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold';
+              rejectButton.textContent = 'Отклонить';
+              rejectButton.dataset.offer = offer.id;
+              actions.append(acceptButton, rejectButton);
+              offerCard.appendChild(actions);
+            } else {
+              const pendingLabel = document.createElement('div');
+              pendingLabel.className = 'text-slate-400 mt-1';
+              pendingLabel.textContent = `Ожидает ответа команды «${toTeam.name}».`;
+              offerCard.appendChild(pendingLabel);
+              const cancelButton = document.createElement('button');
+              cancelButton.type = 'button';
+              cancelButton.className = 'cancel-trade-btn mt-2 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold';
+              cancelButton.textContent = 'Отозвать';
+              cancelButton.dataset.offer = offer.id;
+              offerCard.appendChild(cancelButton);
+            }
+            offersSection.appendChild(offerCard);
+          });
+          if (offersSection.childElementCount > 1) card.appendChild(offersSection);
+        }
+
         this.dom.teamsContainer.appendChild(card);
       });
 
@@ -1637,6 +1837,30 @@
           if (confirm('Удалить игрока из команды и вернуть средства?')) {
             this.removePlayerFromTeam(teamId, playerId);
           }
+        });
+      });
+
+      this.dom.teamsContainer.querySelectorAll('.trade-player-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          this.openTradeModal(
+            parseInt(e.currentTarget.getAttribute('data-team'), 10),
+            parseInt(e.currentTarget.getAttribute('data-player'), 10)
+          );
+        });
+      });
+
+      this.dom.teamsContainer.querySelectorAll('.accept-trade-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => this.acceptTradeOffer(e.currentTarget.dataset.offer));
+      });
+      this.dom.teamsContainer.querySelectorAll('.reject-trade-btn, .cancel-trade-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const offerId = e.currentTarget.dataset.offer;
+          const offer = this.tradeOffers.find(item => item.id === offerId);
+          if (!offer) return;
+          offer.status = e.currentTarget.classList.contains('cancel-trade-btn') ? 'cancelled' : 'rejected';
+          this.saveTradeOffers();
+          this.render();
+          this.showToast('Предложение обмена закрыто.', 'info');
         });
       });
     }
@@ -2078,7 +2302,7 @@
       const teamId = this.dom.freeAgentTeamSelect ? parseInt(this.dom.freeAgentTeamSelect.value, 10) : 1;
       const team = this.teams.find(t => t.id === teamId) || this.teams[0];
 
-      const available = this.pool.filter(p => !this.draftedPlayerIds.includes(p.id));
+      const available = this.getAvailablePlayers();
       const filtered = available.filter(p => {
         if (!query) return true;
         return p.name.toLowerCase().includes(query) || 
@@ -2168,6 +2392,125 @@
       this.renderFreeAgentsList();
       this.showToast(`✍️ ${player.name} подписан в команду "${team.name}" за €${cost}M!`, 'success');
       this.checkDraftCompletion();
+    }
+
+    openTradeModal(teamId, playerId) {
+      const team = this.teams.find(item => item.id === teamId);
+      const player = team && team.players.find(item => item.id === playerId);
+      if (!team || !player || !this.dom.tradeModal) return;
+
+      this.tradeFromTeamId = teamId;
+      this.tradeFromPlayerId = playerId;
+      this.dom.tradeTargetTeam.innerHTML = '';
+      this.teams.filter(item => item.id !== teamId).forEach(target => {
+        const option = document.createElement('option');
+        option.value = target.id;
+        option.textContent = target.name;
+        this.dom.tradeTargetTeam.appendChild(option);
+      });
+      this.dom.tradeCash.value = '0';
+      const summary = document.getElementById('trade-offer-summary');
+      if (summary) summary.textContent = `${team.name} предлагает игрока ${player.name} и доплату из бюджета своей команды.`;
+      this.dom.tradeModal.classList.remove('hidden');
+      this.renderTradeTargetPlayers();
+    }
+
+    renderTradeTargetPlayers() {
+      if (!this.dom.tradeTargetPlayer || !this.dom.tradeTargetTeam) return;
+      const targetTeam = this.teams.find(item => item.id === parseInt(this.dom.tradeTargetTeam.value, 10));
+      this.dom.tradeTargetPlayer.innerHTML = '';
+      if (targetTeam) {
+        targetTeam.players.forEach(player => {
+          const option = document.createElement('option');
+          option.value = player.id;
+          option.textContent = `${player.name} (${player.position})`;
+          this.dom.tradeTargetPlayer.appendChild(option);
+        });
+      }
+      const submitButton = document.getElementById('btn-submit-trade');
+      if (submitButton) submitButton.disabled = !targetTeam || targetTeam.players.length === 0;
+      const emptyNotice = document.getElementById('trade-target-empty');
+      if (emptyNotice) emptyNotice.classList.toggle('hidden', Boolean(targetTeam && targetTeam.players.length));
+      this.dom.tradeTargetPlayer.disabled = !targetTeam || targetTeam.players.length === 0;
+    }
+
+    closeTradeModal() {
+      if (this.dom.tradeModal) this.dom.tradeModal.classList.add('hidden');
+    }
+
+    submitTradeOffer() {
+      const fromTeam = this.teams.find(team => team.id === this.tradeFromTeamId);
+      const toTeam = this.teams.find(team => team.id === parseInt(this.dom.tradeTargetTeam.value, 10));
+      const fromPlayer = fromTeam && fromTeam.players.find(player => player.id === this.tradeFromPlayerId);
+      const toPlayerId = parseInt(this.dom.tradeTargetPlayer.value, 10);
+      const toPlayer = toTeam && toTeam.players.find(player => player.id === toPlayerId);
+      const cash = Number(this.dom.tradeCash.value);
+      if (!fromTeam || !toTeam || !fromPlayer || !toPlayer) {
+        this.showToast('Игрок или команда больше недоступны для обмена.', 'warning');
+        return;
+      }
+      if (!Number.isSafeInteger(cash) || cash < 0) {
+        this.showToast('Доплата должна быть целым числом не меньше €0M.', 'warning');
+        return;
+      }
+      if (cash > fromTeam.budget) {
+        this.showToast(`У команды «${fromTeam.name}» недостаточно денег для такой доплаты.`, 'danger');
+        return;
+      }
+
+      this.tradeOffers.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        fromTeamId: fromTeam.id,
+        toTeamId: toTeam.id,
+        fromPlayerId: fromPlayer.id,
+        toPlayerId: toPlayer.id,
+        cash,
+        status: 'pending'
+      });
+      this.saveTradeOffers();
+      this.closeTradeModal();
+      this.render();
+      this.showToast(`Предложение отправлено команде «${toTeam.name}».`, 'success');
+    }
+
+    acceptTradeOffer(offerId) {
+      const offer = this.tradeOffers.find(item => item.id === offerId && item.status === 'pending');
+      if (!offer) return;
+      const fromTeam = this.teams.find(team => team.id === offer.fromTeamId);
+      const toTeam = this.teams.find(team => team.id === offer.toTeamId);
+      const fromIndex = fromTeam && fromTeam.players.findIndex(player => player.id === offer.fromPlayerId);
+      const toIndex = toTeam && toTeam.players.findIndex(player => player.id === offer.toPlayerId);
+      if (!fromTeam || !toTeam || fromIndex < 0 || toIndex < 0) {
+        this.showToast('Обмен невозможен: один из игроков больше не принадлежит указанной команде.', 'warning');
+        return;
+      }
+      if (!Number.isSafeInteger(offer.cash) || offer.cash < 0 || fromTeam.budget < offer.cash) {
+        this.showToast(`У команды «${fromTeam.name}» больше нет средств на обещанную доплату.`, 'danger');
+        return;
+      }
+
+      const outgoingPlayer = fromTeam.players.splice(fromIndex, 1)[0];
+      const requestedPlayer = toTeam.players.splice(toIndex, 1)[0];
+      toTeam.players.push({ ...outgoingPlayer, purchasePrice: 0, acquiredByTrade: true });
+      fromTeam.players.push({ ...requestedPlayer, purchasePrice: 0, acquiredByTrade: true });
+      fromTeam.budget -= offer.cash;
+      fromTeam.spent += offer.cash;
+      toTeam.budget += offer.cash;
+      this.syncTeamLineup(fromTeam);
+      this.syncTeamLineup(toTeam);
+
+      const tradedPlayerIds = new Set([outgoingPlayer.id, requestedPlayer.id]);
+      this.tradeOffers.forEach(otherOffer => {
+        if (otherOffer.id !== offer.id && otherOffer.status === 'pending' &&
+            (tradedPlayerIds.has(otherOffer.fromPlayerId) || tradedPlayerIds.has(otherOffer.toPlayerId))) {
+          otherOffer.status = 'cancelled';
+        }
+      });
+      offer.status = 'accepted';
+      this.saveTeams();
+      this.saveTradeOffers();
+      this.render();
+      this.showToast(`Обмен завершён: ${fromTeam.name} ↔ ${toTeam.name}${offer.cash ? `, доплата €${offer.cash}M` : ''}.`, 'success');
     }
 
     // --- AI EXPORT MODAL ---
@@ -2332,6 +2675,10 @@
       this.clearLotTimer();
       this.currentLot = null;
       this.draftedPlayerIds = [];
+      this.removedPlayerIds = [];
+      this.tradeOffers = [];
+      this.saveRemovedPlayerIds();
+      this.saveTradeOffers();
 
       this.teams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
       this.teams.forEach(t => {
@@ -2356,7 +2703,7 @@
 
     // --- MASTER RENDER ---
     render() {
-      const remainingPool = this.pool.length - this.draftedPlayerIds.length;
+      const remainingPool = this.getAvailablePlayers().length;
       if (this.dom.poolCount) this.dom.poolCount.textContent = remainingPool;
       if (this.dom.totalDrafted) this.dom.totalDrafted.textContent = `${this.draftedPlayerIds.length} / ${this.settings.squadLimit * 3}`;
 
