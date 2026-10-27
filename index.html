@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Футбольный Аукцион — Draft Game (3 Команды)</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pitch: '#14532d',
+            pitchLine: 'rgba(255, 255, 255, 0.35)'
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Google Fonts: Outfit & Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Custom Theme Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="text-slate-100 flex flex-col min-h-screen selection:bg-sky-500 selection:text-white">
+
+  <!-- ================= TOP HEADER ================= -->
+  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800/80 px-4 py-3 md:px-6">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-emerald-400 p-0.5 shadow-lg shadow-sky-500/20 flex items-center justify-center">
+          <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-xl">
+            ⚽
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg md:text-xl font-black font-display tracking-tight text-white flex items-center gap-1.5">
+              CHAMPIONS DRAFT <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 font-mono font-bold">3 TEAMS</span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400">Интерактивный аукцион составов • Бюджет €500M • 15 игроков</p>
+        </div>
+      </div>
+
+      <!-- Quick Stats Counter -->
+      <div class="flex items-center gap-3 bg-slate-950/70 border border-slate-800/80 px-4 py-1.5 rounded-xl text-xs font-mono">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400">В пуле:</span>
+          <span id="stat-pool-count" class="font-bold text-sky-400">165</span>
+        </div>
+        <div class="w-px h-4 bg-slate-800"></div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400">Куплено:</span>
+          <span id="stat-total-drafted" class="font-bold text-emerald-400">0 / 45</span>
+        </div>
+      </div>
+
+      <!-- Header Action Controls -->
+      <div class="flex items-center gap-2">
+        <!-- Sound Toggle -->
+        <button 
+          id="btn-toggle-sound" 
+          type="button" 
+          class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all shadow-sm"
+          title="Включить / Выключить звук"
+        >
+          <span id="icon-sound">🔊</span>
+        </button>
+
+        <!-- Tactical Pitch View -->
+        <button 
+          id="btn-open-pitch" 
+          type="button" 
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-bold text-slate-200 hover:text-white transition-all shadow-sm"
+          title="Тактическая расстановка на поле"
+        >
+          <span>📋</span>
+          <span class="hidden sm:inline">Поле</span>
+        </button>
+
+        <!-- Help / Bankruptcy Rules Modal Trigger -->
+        <button 
+          id="btn-open-rules" 
+          type="button" 
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-amber-500/40 text-xs font-bold text-amber-300 hover:text-amber-200 transition-all shadow-sm"
+          title="Правила драфта и что делать, если закончились деньги"
+        >
+          <span>❓</span>
+          <span class="hidden md:inline">Правила / Банкротство</span>
+        </button>
+
+        <!-- AI Export / Finish Draft Button -->
+        <button 
+          id="btn-open-export" 
+          type="button" 
+          class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white transition-all shadow-lg shadow-emerald-600/20 hover:scale-[1.02]"
+          title="Завершить драфт и скопировать составы для ИИ"
+        >
+          <span>🏁</span>
+          <span>Завершить драфт (ИИ)</span>
+        </button>
+
+        <!-- Settings Modal Trigger -->
+        <button 
+          id="btn-open-settings" 
+          type="button" 
+          class="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white transition-all shadow-sm"
+          title="Настройки аукциона"
+        >
+          <span>⚙️</span>
+        </button>
+
+        <!-- Reset Button -->
+        <button 
+          id="btn-reset-draft" 
+          type="button" 
+          class="p-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 text-rose-300 hover:text-rose-100 transition-all shadow-sm"
+          title="Сбросить аукцион и начать сначала"
+        >
+          <span>🔄</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= MAIN ARENA ================= -->
+  <main class="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col gap-6">
+
+    <!-- AUCTION STAGE / ROULETTE CARD -->
+    <section id="roulette-stage" class="glass-panel-elevated rounded-3xl p-5 md:p-7 relative overflow-hidden">
+      <!-- Glow ambient backdrop -->
+      <div class="absolute -top-32 -left-32 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- State 1: EMPTY / WAITING TO SPIN -->
+      <div id="empty-lot-notice" class="py-12 md:py-16 flex flex-col items-center justify-center text-center">
+        <div class="w-20 h-20 rounded-3xl bg-slate-900/90 border border-slate-700/80 shadow-2xl flex items-center justify-center text-4xl mb-4 animate-bounce">
+          🎰
+        </div>
+        <h2 class="text-2xl md:text-3xl font-black font-display tracking-tight text-white mb-2">
+          Готовы к новому лоту?
+        </h2>
+        <p class="text-slate-400 text-sm max-w-md mb-6">
+          Запустите рандомайзер, чтобы случайным образом выбрать звездного футболиста и определить тип аукциона!
+        </p>
+        <button 
+          id="btn-spin-roulette" 
+          type="button" 
+          class="flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-400 hover:from-sky-400 hover:via-indigo-400 hover:to-emerald-300 text-slate-950 font-black text-base md:text-lg uppercase tracking-wider shadow-xl shadow-sky-500/30 hover:scale-[1.03] active:scale-[0.98] transition-all"
+        >
+          <span class="text-2xl">🎰</span>
+          <span>Выбрать игрока (Рандомайзер)</span>
+        </button>
+      </div>
+
+      <!-- State 2: ROULETTE SPINNING ANIMATION -->
+      <div id="roulette-anim-box" class="hidden py-14 flex flex-col items-center justify-center text-center">
+        <div class="relative w-full max-w-lg p-6 rounded-3xl bg-slate-950/90 border-2 border-sky-400/50 shadow-2xl overflow-hidden">
+          <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-400 shimmer-effect"></div>
+          
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <span class="animate-spin text-2xl">⚽</span>
+            <span class="text-xs uppercase tracking-widest text-sky-400 font-bold">Вращение рулетки трансферов...</span>
+          </div>
+
+          <div class="py-4">
+            <div id="roulette-ticker-name" class="text-3xl md:text-4xl font-black font-display text-white tracking-wide truncate">
+              Поиск игрока...
+            </div>
+            <div id="roulette-ticker-club" class="text-sm text-slate-400 font-medium mt-1">
+              Клуб • Лига
+            </div>
+            <div class="mt-3 flex justify-center">
+              <span id="roulette-ticker-pos" class="px-3 py-1 rounded-lg text-xs font-bold badge-pos-FW">
+                FW
+              </span>
+            </div>
+          </div>
+
+          <div class="text-[11px] font-mono text-slate-500 tracking-wider">
+            ОПРЕДЕЛЕНИЕ ЛОТА И ТИПА АУКЦИОНА
+          </div>
+        </div>
+      </div>
+
+      <!-- State 3: ACTIVE LOT DETAILS & BIDDING CONSOLE -->
+      <div id="active-lot-card" class="hidden">
+        
+        <!-- Header row of the active lot -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800/80">
+          <div class="flex items-center gap-3">
+            <span id="auction-type-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/40">
+              📢 ОБЫЧНЫЙ АУКЦИОН
+            </span>
+            <span id="auction-type-desc" class="text-xs text-slate-400 hidden sm:inline">
+              Открытые ставки в реальном времени
+            </span>
+          </div>
+
+          <!-- Controls: Manual Sell & Skip lot -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- Manual Sell Bar -->
+            <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl p-1 text-xs">
+              <span class="text-slate-400 px-1.5 font-semibold text-[11px]">🔨 Продать:</span>
+              <button type="button" class="quick-sell-btn px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold border border-sky-500/30 transition-colors" data-team="1">Команде 1</button>
+              <button type="button" class="quick-sell-btn px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/30 transition-colors" data-team="2">Команде 2</button>
+              <button type="button" class="quick-sell-btn px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 transition-colors" data-team="3">Команде 3</button>
+            </div>
+
+            <!-- Pause / Resume timer -->
+            <button 
+              id="btn-pause-lot" 
+              type="button" 
+              class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/70 text-xs font-bold text-slate-300 hover:text-white transition-all"
+              title="Приостановить или возобновить таймер"
+            >
+              ⏸️ Пауза
+            </button>
+
+            <!-- Skip lot -->
+            <button 
+              id="btn-skip-lot" 
+              type="button" 
+              class="px-3.5 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-xs font-bold text-rose-300 hover:text-white transition-all"
+              title="Пропустить лот, если никто не делает ставки"
+            >
+              ⏩ Пропустить
+            </button>
+          </div>
+        </div>
+
+        <!-- Ability Banners (Agent Fee / Veto) -->
+        <div id="agent-fee-banner" class="hidden mb-4 p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 text-amber-200 text-xs font-medium flex items-center gap-2 shadow-lg"></div>
+        <div id="veto-banner" class="hidden mb-4 p-3 rounded-xl bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs font-medium flex items-center gap-2 shadow-lg"></div>
+
+        <!-- Player Card Grid (Split: Player Info | Live Auction State) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          
+          <!-- LEFT: Big Player Visual Card (5 Cols) -->
+          <div class="lg:col-span-5 flex flex-col sm:flex-row lg:flex-col items-center gap-5 p-5 rounded-2xl bg-slate-950/70 border border-slate-800/80 relative overflow-hidden">
+            
+            <!-- Player Avatar / Jersey -->
+            <div class="relative w-36 h-36 md:w-44 md:h-44 rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-700 flex-shrink-0 shadow-2xl">
+              <img 
+                id="lot-player-photo" 
+                src="" 
+                alt="Player" 
+                class="w-full h-full object-cover object-top"
+              />
+              <div class="absolute top-2 left-2 flex flex-col gap-1">
+                <span id="lot-player-pos" class="px-2.5 py-0.5 rounded-lg text-xs font-black badge-pos-FW shadow">
+                  FW
+                </span>
+              </div>
+              <div class="absolute bottom-2 right-2 bg-slate-950/90 border border-slate-700 px-2 py-0.5 rounded-lg text-xs font-mono font-bold text-amber-400">
+                OVR <span id="lot-player-rating">91</span>
+              </div>
+            </div>
+
+            <!-- Player Metadata -->
+            <div class="flex-1 text-center sm:text-left lg:text-center w-full min-w-0">
+              <div class="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mb-1">
+                <span id="lot-player-flag" class="text-xl">🇳🇴</span>
+                <span id="lot-player-country" class="text-xs text-slate-400 font-medium">Норвегия</span>
+              </div>
+
+              <h3 id="lot-player-name" class="text-2xl md:text-3xl font-black font-display text-white truncate">
+                Эрлинг Холанн
+              </h3>
+              <div id="lot-player-name-en" class="text-xs text-slate-500 font-medium -mt-0.5 truncate">
+                Erling Haaland
+              </div>
+
+              <div class="flex items-center justify-center sm:justify-start lg:justify-center gap-2 mt-2">
+                <span id="lot-player-club" class="text-sm font-semibold text-slate-200">
+                  Манчестер Сити
+                </span>
+                <span class="text-slate-600">•</span>
+                <span id="lot-player-league" class="text-xs text-slate-400">
+                  АПЛ
+                </span>
+              </div>
+
+              <div id="lot-player-role" class="text-xs text-sky-400 font-medium mt-1">
+                ST (Центрфорвард)
+              </div>
+
+              <!-- Base Market Value -->
+              <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs px-2">
+                <span class="text-slate-400">Рыночная стоимость (TM):</span>
+                <span id="lot-player-price" class="text-base font-bold font-mono text-emerald-400">€180M</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT: Live Auction Dashboard & Bids Console (7 Cols) -->
+          <div class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Live Bid & Timer Meter -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              <!-- Current Price Box -->
+              <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span>Текущая ставка:</span>
+                  <span id="leading-team-display" class="font-bold">Стартовая</span>
+                </div>
+                <div id="current-bid-amount" class="text-3xl md:text-4xl font-black font-mono text-sky-400">
+                  €180M
+                </div>
+                <div class="text-[11px] text-slate-500 mt-1">
+                  Победитель забирает игрока
+                </div>
+              </div>
+
+              <!-- Countdown Timer Box -->
+              <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span>Осталось времени:</span>
+                  <span class="text-[10px] uppercase font-mono text-slate-500">Автосброс</span>
+                </div>
+                <div id="timer-display" class="text-3xl md:text-4xl font-black font-mono text-white">
+                  15с
+                </div>
+                <!-- Progress Line -->
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
+                  <div id="timer-progress-bar" class="h-full bg-sky-500 w-full transition-all duration-1000 linear"></div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- BUYOUT BANNER (if Buyout mode) -->
+            <div id="buyout-action-box" class="hidden p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/40">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2 text-xs text-amber-300 font-bold uppercase tracking-wider">
+                  <span>⚡</span>
+                  <span>Опция мгновенного выкупа</span>
+                </div>
+                <span id="buyout-price-tag" class="text-sm font-black font-mono text-amber-400">€270M</span>
+              </div>
+              <div id="buyout-teams-btns" class="flex flex-wrap gap-2">
+                <!-- Injected via app.js -->
+              </div>
+            </div>
+
+            <!-- BIDDING PANEL 1: Standard Live Auction -->
+            <div id="standard-bid-panel" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <!-- Dynamically populated for 3 teams -->
+            </div>
+
+            <!-- BIDDING PANEL 2: Blind Auction -->
+            <div id="blind-bid-panel" class="hidden flex flex-col gap-3">
+              <div class="text-xs text-purple-300 bg-purple-950/40 border border-purple-500/40 p-2.5 rounded-xl flex items-center justify-between gap-3">
+                <span>🙈 <strong>Слепой аукцион:</strong> Передавайте устройство командам по очереди. Ставки скрыты до вскрытия всех ходов или окончания таймера.</span>
+                <button 
+                  id="btn-reveal-blind" 
+                  type="button" 
+                  class="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled
+                >
+                  Вскрыть после ходов всех команд
+                </button>
+              </div>
+              <div id="blind-bid-cards-container" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- Populated via app.js -->
+              </div>
+            </div>
+
+            <!-- WINNER DECLARATION OVERLAY / BANNER -->
+            <div id="lot-winner-declaration" class="hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 to-slate-900 border-2 border-emerald-500 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+              <div id="winner-declare-text" class="text-center sm:text-left">
+                <!-- Injected via app.js -->
+              </div>
+              <button 
+                id="btn-confirm-sale" 
+                type="button" 
+                class="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+              >
+                Подтвердить покупку ✍️
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================= 3 TEAMS COMMAND STATIONS ================= -->
+    <section>
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h2 class="text-base md:text-lg font-bold font-display uppercase tracking-wider text-slate-300 flex items-center gap-2">
+          <span>👥</span>
+          <span>Управление командами и ростеры</span>
+        </h2>
+        <span class="text-xs text-slate-400">Лимит: 15 игроков (11 стартовых + 4 запаса)</span>
+      </div>
+
+      <!-- 3 Teams Horizontal Grid -->
+      <div id="teams-container" class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+        <!-- Rendered by app.js: Team 1, Team 2, Team 3 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="border-t border-slate-800/80 mt-auto py-4 px-6 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>⚽ Football Draft Auction — интерактивная игра для 3 команд</div>
+      <div class="font-mono text-[11px] text-slate-600">Pure HTML5 • Tailwind CSS • Web Audio Engine</div>
+    </div>
+  </footer>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. SETTINGS MODAL -->
+  <div id="modal-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-lg w-full border border-slate-700/80 shadow-2xl max-h-[90vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+        <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+          <span>⚙️</span>
+          <span>Настройки аукциона</span>
+        </h3>
+        <button id="btn-close-settings" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">
+          ✕
+        </button>
+      </div>
+
+      <form id="settings-form" class="space-y-4" onsubmit="event.preventDefault();">
+        
+        <!-- Starting Budget -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">
+            Стартовый бюджет каждой команды (€M)
+          </label>
+          <input 
+            id="setting-starting-budget" 
+            type="number" 
+            min="100" 
+            max="1000" 
+            step="50" 
+            value="500" 
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white focus:outline-none focus:border-sky-500"
+          />
+          <span class="text-[11px] text-slate-500">По умолчанию: €500M</span>
+        </div>
+
+        <!-- Squad Limit -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">
+            Лимит состава (кол-во игроков)
+          </label>
+          <select 
+            id="setting-squad-limit" 
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white focus:outline-none focus:border-sky-500"
+          >
+            <option value="11">11 игроков (только старт)</option>
+            <option value="15" selected>15 игроков (11 старт + 4 запас)</option>
+            <option value="18">18 игроков (11 старт + 7 запас)</option>
+          </select>
+        </div>
+
+        <!-- Timer Duration -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">
+            Длительность таймера лота (секунды)
+          </label>
+          <select 
+            id="setting-timer-duration" 
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white focus:outline-none focus:border-sky-500"
+          >
+            <option value="10">10 секунд (быстрый темп)</option>
+            <option value="15" selected>15 секунд (стандарт)</option>
+            <option value="20">20 секунд</option>
+            <option value="30">30 секунд</option>
+          </select>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input id="setting-solo-mode" type="checkbox" class="w-4 h-4 rounded border-slate-700 text-sky-500 bg-slate-950 cursor-pointer" />
+            <span class="text-xs font-medium text-slate-200">Single-player mode: you vs AI bot</span>
+          </label>
+        </div>
+
+        <!-- Special Abilities Toggle -->
+        <div class="hidden pt-2 border-t border-slate-800">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input 
+              id="setting-enable-abilities" 
+              type="checkbox" 
+              checked 
+              class="w-4 h-4 rounded border-slate-700 text-sky-500 focus:ring-0 bg-slate-950 cursor-pointer"
+            />
+            <span class="text-xs font-medium text-slate-200">
+              Включить спецспособности (Перехват, Разведка, Агентский %)
+            </span>
+          </label>
+        </div>
+
+        <!-- Unique Auction Types Checkboxes -->
+        <div class="hidden pt-2 border-t border-slate-800">
+          <label class="block text-xs font-semibold text-slate-300 mb-2">
+            Разрешенные типы аукционов (выбираются случайно):
+          </label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+              <input id="setting-type-standard" type="checkbox" checked class="w-4 h-4 rounded text-sky-500 bg-slate-950 border-slate-700" />
+              <span>📢 Обычный аукцион (открытые ставки)</span>
+            </label>
+            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+              <input id="setting-type-blind" type="checkbox" checked class="w-4 h-4 rounded text-purple-500 bg-slate-950 border-slate-700" />
+              <span>🙈 Слепой аукцион (скрытые ставки)</span>
+            </label>
+            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+              <input id="setting-type-buyout" type="checkbox" checked class="w-4 h-4 rounded text-amber-500 bg-slate-950 border-slate-700" />
+              <span>⚡ Аукцион с опцией мгновенного выкупа (+50%)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Agent Fee Percent -->
+        <div class="hidden pt-2 border-t border-slate-800">
+          <label class="block text-xs font-semibold text-slate-300 mb-1">
+            Агентский процент (%)
+          </label>
+          <input 
+            id="setting-agent-percent" 
+            type="number" 
+            min="5" 
+            max="30" 
+            step="5" 
+            value="10" 
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 font-mono text-sm text-white focus:outline-none focus:border-sky-500"
+          />
+        </div>
+
+        <!-- Anti-Bankruptcy Reserve Protection -->
+        <div class="pt-2 border-t border-slate-800">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input 
+              id="setting-reserve-protection" 
+              type="checkbox" 
+              checked 
+              class="w-4 h-4 rounded border-slate-700 text-sky-500 focus:ring-0 bg-slate-950 cursor-pointer"
+            />
+            <span class="text-xs font-medium text-slate-200">
+              🛡️ Защита от банкротства (Резервировать минимум €1M на каждый недостающий слот состава)
+            </span>
+          </label>
+        </div>
+
+        <!-- Submit & Actions -->
+        <div class="pt-4 flex items-center justify-end gap-3">
+          <button 
+            id="btn-save-settings" 
+            type="button" 
+            class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-sky-500/20"
+          >
+            Сохранить настройки
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- 2. AI PROMPT EXPORT MODAL -->
+  <div id="modal-ai-export" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-2xl w-full border border-slate-700/80 shadow-2xl max-h-[90vh] flex flex-col">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4 flex-shrink-0">
+        <div>
+          <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+            <span>📋</span>
+            <span>Итоги драфта & Экспорт для ИИ</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Готовый промпт для ChatGPT, Claude или Gemini для глубокого тактического анализа
+          </p>
+        </div>
+        <button id="btn-close-export" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">
+          ✕
+        </button>
+      </div>
+
+      <!-- Prompt Text Preview -->
+      <div class="flex-1 overflow-hidden flex flex-col mb-4">
+        <label class="text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+          <span>Текст промпта (в точном формате):</span>
+          <span id="copy-feedback" class="hidden text-emerald-400 text-xs font-bold animate-pulse">
+            ✅ Скопировано в буфер!
+          </span>
+        </label>
+        <textarea 
+          id="ai-prompt-textarea" 
+          rows="12" 
+          readonly 
+          class="w-full flex-1 p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200 resize-none focus:outline-none focus:border-emerald-500 selection:bg-emerald-500 selection:text-black leading-relaxed"
+        ></textarea>
+      </div>
+
+      <!-- Copy Button -->
+      <div class="flex-shrink-0 flex items-center gap-3">
+        <button 
+          id="btn-copy-prompt" 
+          type="button" 
+          class="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm uppercase tracking-wider transition-all shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+        >
+          <span class="text-lg">📋</span>
+          <span>Скопировать составы для ИИ (Prompt)</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. TACTICAL PITCH MODAL -->
+  <div id="modal-pitch" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-5 md:p-6 max-w-3xl w-full border border-slate-700/80 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+        <div>
+          <h3 class="text-lg md:text-xl font-bold font-display text-white flex items-center gap-2">
+            <span>⚽</span>
+            <span>Тактическая расстановка на поле</span>
+          </h3>
+          <p class="text-xs text-slate-400">11 игроков основы + 4 на скамейке запасных</p>
+        </div>
+        <button id="btn-close-pitch" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">
+          ✕
+        </button>
+      </div>
+
+      <!-- Team Tabs -->
+      <div id="pitch-team-tabs" class="flex items-center gap-2 mb-3 flex-wrap flex-shrink-0">
+        <!-- Rendered via app.js -->
+      </div>
+
+      <!-- Formation & Tactical Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3 p-3 rounded-xl bg-slate-950/90 border border-slate-800 flex-shrink-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="text-xs font-bold text-slate-300">📐 Тактическая схема:</label>
+          <select 
+            id="pitch-formation-select" 
+            class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold font-mono text-sky-400 focus:outline-none focus:border-sky-500 cursor-pointer"
+          >
+            <option value="4-3-3">4-3-3 (Классика: 1 GK, 4 DEF, 3 MID, 3 FW)</option>
+            <option value="4-2-3-1">4-2-3-1 (Современная: 1 GK, 4 DEF, 2 CDM, 3 CAM, 1 ST)</option>
+            <option value="4-4-2">4-4-2 (Британская: 1 GK, 4 DEF, 4 MID, 2 FW)</option>
+            <option value="3-5-2">3-5-2 (Атакующая: 1 GK, 3 DEF, 5 MID, 2 FW)</option>
+            <option value="3-4-3">3-4-3 (Тотальная: 1 GK, 3 DEF, 4 MID, 3 FW)</option>
+            <option value="5-3-2">5-3-2 (Защитная: 1 GK, 5 DEF, 3 MID, 2 FW)</option>
+            <option value="4-1-2-1-2">4-1-2-1-2 (Ромб: 1 GK, 4 DEF, 1 CDM, 2 CM, 1 CAM, 2 ST)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button 
+            id="btn-pitch-auto-arrange" 
+            type="button" 
+            class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition-all flex items-center gap-1.5"
+            title="Автоматически распределить игроков по оптимальным позициям"
+          >
+            <span>🔄</span>
+            <span>Авто-позиции</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Help Hint -->
+      <div class="mb-3 px-3 py-2 rounded-xl bg-sky-950/40 border border-sky-500/30 text-sky-300 text-xs flex items-center justify-between flex-shrink-0">
+        <span class="flex items-center gap-2">
+          <span>💡</span>
+          <span><strong>Перемещение:</strong> Перетаскивайте карточки игроков мышкой или кликните на одного игрока, затем на второй слот для обмена позициями!</span>
+        </span>
+        <span id="pitch-selection-indicator" class="hidden text-xs font-bold text-amber-400 animate-pulse">
+          🎯 Выберите слот для обмена!
+        </span>
+      </div>
+
+      <!-- Stats Line -->
+      <div id="pitch-stats-display" class="mb-3 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-300 flex-shrink-0">
+        <!-- Rendered via app.js -->
+      </div>
+
+      <!-- Visual Football Field -->
+      <div class="football-pitch w-full min-h-[420px] md:min-h-[480px] flex flex-col justify-between p-3 relative shadow-2xl mb-4">
+        <!-- Field Markings -->
+        <div class="pitch-line pitch-center-line"></div>
+        <div class="pitch-line pitch-center-circle"></div>
+        <div class="pitch-line pitch-penalty-top"></div>
+        <div class="pitch-line pitch-penalty-bottom"></div>
+
+        <!-- Starters Dynamic Grid -->
+        <div id="pitch-starters" class="relative z-10 w-full h-full flex flex-col justify-between flex-1 py-1">
+          <!-- Attack / Midfield / Defense / GK lines -->
+        </div>
+      </div>
+
+      <!-- Bench / Substitutes Box -->
+      <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex-shrink-0">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span>Запасные игроки (Скамейка):</span>
+          <span class="text-[11px] text-slate-500">Перетащите на поле для замены</span>
+        </div>
+        <div id="pitch-bench" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <!-- Rendered via app.js -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4. FREE AGENTS MODAL -->
+  <div id="modal-free-agent" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-3xl w-full border border-slate-700/80 shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+        <div>
+          <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+            <span>✍️</span>
+            <span>Рынок свободных агентов (Льготный трансфер)</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Если у команды мало или не осталось денег, можно добрать оставшихся игроков за €1M (или бесплатно за €0M при банкротстве)
+          </p>
+        </div>
+        <button id="btn-close-free-agent" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4 flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-semibold text-slate-400">Команда:</label>
+          <select id="free-agent-team-select" class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-white focus:outline-none focus:border-sky-500">
+            <!-- options populated via app.js -->
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input 
+            type="text" 
+            id="free-agent-search" 
+            placeholder="Поиск по имени или позиции..." 
+            class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 w-52"
+          />
+        </div>
+      </div>
+
+      <!-- Free Agents List -->
+      <div id="free-agents-list" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[50vh]">
+        <!-- Populated via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PLAYER EXCHANGE MODAL -->
+  <div id="modal-trade" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-xl w-full border border-slate-700/80 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+          <span>↔️</span>
+          <span>Предложить обмен</span>
+        </h3>
+        <button id="btn-close-trade" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">✕</button>
+      </div>
+      <p id="trade-offer-summary" class="text-sm text-slate-300 mb-4"></p>
+      <div class="space-y-4">
+        <div>
+          <label for="trade-target-team" class="block text-xs font-semibold text-slate-300 mb-1">Команда-соперник</label>
+          <select id="trade-target-team" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-sky-500"></select>
+        </div>
+        <div>
+          <label for="trade-target-player" class="block text-xs font-semibold text-slate-300 mb-1">Игрок, которого хотите получить</label>
+          <select id="trade-target-player" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-sky-500"></select>
+          <p id="trade-target-empty" class="hidden text-xs text-amber-300 mt-1">У этой команды пока нет игроков для обмена.</p>
+        </div>
+        <div>
+          <label for="trade-cash" class="block text-xs font-semibold text-slate-300 mb-1">Доплата вашей команды (€M, 0 для обмена 1 на 1)</label>
+          <input id="trade-cash" type="number" min="0" step="1" value="0" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white focus:outline-none focus:border-sky-500" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button id="btn-submit-trade" type="button" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold transition-colors">Отправить предложение</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Обмен завершится только после подтверждения командой-соперником. Игроки и доплата перейдут одновременно.</p>
+    </div>
+  </div>
+
+  <!-- 6. RULES & BANKRUPTCY HELP MODAL -->
+  <div id="modal-rules-help" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel-elevated rounded-3xl p-6 md:p-8 max-w-2xl w-full border border-slate-700/80 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <div>
+          <h3 class="text-xl font-bold font-display text-white flex items-center gap-2">
+            <span>❓</span>
+            <span>Что делать, если закончились деньги, а состав не полон?</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">Официальные правила футбольного аукциона при исчерпании бюджета</p>
+        </div>
+        <button id="btn-close-rules" type="button" class="text-slate-400 hover:text-white p-1 text-xl font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs md:text-sm text-slate-300 leading-relaxed">
+        <div class="p-4 rounded-2xl bg-sky-950/40 border border-sky-500/40 shadow-lg">
+          <div class="font-bold text-sky-300 text-base mb-1.5 flex items-center gap-2">
+            <span>🛡️</span>
+            <span>1. Встроенная защита от банкротства (Smart Reserve)</span>
+          </div>
+          <p class="text-slate-300">
+            В игре работает автоматический контроль ставок: команда <strong>не может поставить сумму</strong>, которая оставит её без денег на оставшиеся незаполненные места состава.
+            Для каждого недостающего игрока резервируется как минимум <strong>€1M</strong>.
+          </p>
+          <div class="mt-2 text-xs font-mono bg-slate-900/80 p-2.5 rounded-xl border border-sky-500/20 text-sky-200">
+            Макс. ставка = Бюджет − (Оставшиеся слоты − 1) × €1M<br/>
+            Пример: осталось €10M, а нужно еще 4 игрока → Максимальная ставка = €7M (резерв €3M на остальных троих).
+          </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 shadow-lg">
+          <div class="font-bold text-emerald-300 text-base mb-1.5 flex items-center gap-2">
+            <span>✍️</span>
+            <span>2. Рынок свободных агентов (€1M / €0M)</span>
+          </div>
+          <p class="text-slate-300">
+            Если команда все же исчерпала бюджет (€0M или €1M) или другие участники задирают цены, команда может открыть меню <strong>«✍️ Свободный агент»</strong> и выбрать любого оставшегося в общей базе игрока по льготной цене <strong>€1M</strong> (или бесплатно за <strong>€0M</strong> при полном банкротстве). Состав из 15 игроков будет гарантированно доукомплектован!
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 shadow-lg">
+          <div class="font-bold text-amber-300 text-base mb-1.5 flex items-center gap-2">
+            <span>💰</span>
+            <span>3. Экстренный заём / Спонсорский пакет (+€50M)</span>
+          </div>
+          <p class="text-slate-300">
+            Ведущий аукциона (хост) в любой момент может предоставить финансовую субсидию обанкротившемуся клубу кнопкой <strong>«💰 +€50M Кредит»</strong> прямо в карточке команды. Это позволяет спасти участника и вернуть интригу в торги.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-purple-950/40 border border-purple-500/40 shadow-lg">
+          <div class="font-bold text-purple-300 text-base mb-1.5 flex items-center gap-2">
+            <span>🙈</span>
+            <span>4. Честный слепой аукцион на одном компьютере</span>
+          </div>
+          <p class="text-slate-300">
+            Команды вводят ставки по очереди, передавая устройство следующему участнику. Уже поданные суммы не видны. Вскрытие доступно, когда все команды сделали ход, либо автоматически по окончании таймера. «Разведка» не раскрывает ставки в этом режиме.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-sky-950/40 border border-sky-500/40 shadow-lg">
+          <div class="font-bold text-sky-300 text-base mb-1.5 flex items-center gap-2">
+            <span>↔️</span>
+            <span>5. Обмены между командами</span>
+          </div>
+          <p class="text-slate-300">
+            Нажмите ↔ рядом с игроком, чтобы предложить его в обмен на игрока другой команды и при желании доплатить из своего бюджета. Обмен проводится только после принятия предложения другой командой; при отказе или отзыве составы и бюджеты не меняются.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Center -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- Scripts -->
+  <script src="js/players.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
